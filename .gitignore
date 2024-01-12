@@ -1,0 +1,5 @@
+# Ignore JetBrains IDE files
+.idea/
+
+# Ignore Node.js modules
+node_modules/

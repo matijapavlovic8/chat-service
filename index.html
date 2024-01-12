@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Application</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="app.js"></script>
+</head>
+<body>
+<div id="chat-container">
+    <label for="message-input"></label><input type="text" id="message-input" placeholder="Type your message">
+    <label for="method-picker"></label><select id="method-picker">
+        <option value="disconnected">Disconnect</option>
+        <option value="polling">Polling</option>
+        <option value="longpolling">Long Polling</option>
+        <option value="websocket">WebSocket
+    </select>
+    <button id="send-button">Send Message</button>
+    <div id="chat-output"></div>
+</div>
+</body>
+</html>
