@@ -22,14 +22,18 @@ document.addEventListener('DOMContentLoaded', () => {
     methodPicker.addEventListener('change', () => {
         const selectedMethod = methodPicker.value;
         if (selectedMethod === 'websocket') {
-            connectWebSocket();
             stopPolling(clientId)
+            connectWebSocket(clientId);
         } else if (selectedMethod === 'polling') {
-            initPolling(clientId, false);
+            disconnectWebSocket(clientId)
+            stopPolling(clientId)
+            initPolling(clientId);
         } else if (selectedMethod === 'longpolling') {
-            initPolling(clientId, true);
+            disconnectWebSocket(clientId)
+            stopPolling(clientId)
+            longPollForMessage(clientId);
         } else if (selectedMethod === 'disconnected') {
-            disconnectWebSocket()
+            disconnectWebSocket(clientId)
             stopPolling(clientId)
         }
     });
@@ -37,11 +41,12 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 let pollingIntervals = {};
+let sockets = {}
 
-function initPolling(clientId, useLongPoll) {
+function initPolling(clientId) {
     if (!pollingIntervals[clientId]) {
         pollingIntervals[clientId] = setInterval(() => {
-            pollForMessage(clientId, useLongPoll);
+            pollForMessage(clientId);
         }, 2000); // Poll every 2 seconds (adjust as needed)
     }
 }
@@ -81,7 +86,7 @@ function sendMessage(message, clientId) {
 
 function pollForMessage(clientId, useLongPoll) {
     const xhr = new XMLHttpRequest();
-    const url = useLongPoll ? 'http://localhost:5000/long_poll_message' : 'http://localhost:5000/poll_message';
+    const url = 'http://localhost:5000/poll_message';
 
     xhr.open('GET', url, true);
     xhr.setRequestHeader('Client-Id', clientId);
@@ -94,7 +99,36 @@ function pollForMessage(clientId, useLongPoll) {
                 console.log(data);
             }
         } else if (xhr.status === 204) {
-            // No content
+
+        } else {
+            console.error('Failed to poll for messages. Status: ' + xhr.status);
+        }
+    };
+
+    xhr.onerror = function () {
+        console.error('Network error occurred');
+    };
+
+    xhr.send();
+}
+
+function longPollForMessage(clientId) {
+    const xhr = new XMLHttpRequest();
+    const url = 'http://localhost:5000/long_poll_message';
+
+    xhr.open('GET', url, true);
+    xhr.setRequestHeader('Client-Id', clientId);
+
+    xhr.onload = function () {
+        if (xhr.status === 200) {
+            const data = JSON.parse(xhr.responseText);
+            if (data) {
+                displayMessage(data['message'], data['client_id']);
+                console.log(data);
+                longPollForMessage(clientId)
+            }
+        } else if (xhr.status === 204) {
+            longPollForMessage(clientId)
         } else {
             console.error('Failed to poll for messages. Status: ' + xhr.status);
         }
@@ -108,8 +142,17 @@ function pollForMessage(clientId, useLongPoll) {
 }
 
 
-function disconnectWebSocket(socket) {
+// function disconnectWebSocket(clientId) {
+//     let socket = sockets[clientId]
+//     if (socket) {
+//         socket.close();
+//     }
+// }
+
+function disconnectWebSocket(clientId) {
+    let socket = sockets[clientId];
     if (socket) {
+        socket.onclose = null; // Remove any existing onclose handler
         socket.close();
     }
 }
@@ -121,17 +164,18 @@ function displayMessage(message, clientId) {
     chatOutput.appendChild(messageElement);
 }
 
-function connectWebSocket() {
-    let socket = new WebSocket('ws://localhost:5000'); // Assuming your server is running on localhost:3000
-
-    socket.addEventListener('open', (event) => {
-        console.log('WebSocket connection opened:', event);
+function connectWebSocket(clientId) {
+    let socket = new WebSocket(`ws://localhost:5000/ws?client_id=${clientId}`);
+    sockets[clientId] = socket
+    sockets[clientId].addEventListener('open', (event) => {
+        console.log('WebSocket connection opened for client: ', clientId, event);
     });
 
-    socket.addEventListener('message', (event) => {
-        const message = JSON.parse(event.data);
-        displayMessage(message);
-    });
+    sockets[clientId].addEventListener('message', (event) => {
+        let data = JSON.parse(event.data)
+        console.log(data)
+        displayMessage(data['message'], data['client_id'])
+    })
 
     socket.addEventListener('close', (event) => {
         console.log('WebSocket connection closed:', event);
