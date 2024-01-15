@@ -51,7 +51,6 @@ func main() {
 }
 
 func handleWebSocket(c *gin.Context) {
-	// Upgrade the HTTP connection to a WebSocket connection
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 
 	if err != nil {
@@ -66,25 +65,22 @@ func handleWebSocket(c *gin.Context) {
 	connectionCache[clientId] = conn
 	connMutex.Unlock()
 
-	// Use WaitGroup to wait for the Goroutine to complete
-	var wg sync.WaitGroup
-	wg.Add(1)
+	done := make(chan struct{})
 
-	// Start a Goroutine to handle the WebSocket connection
+	messageChan := make(chan []byte)
+
 	go func() {
 		defer func() {
-			// Close the WebSocket connection when the Goroutine exits
+
 			connMutex.Lock()
 			delete(connectionCache, clientId)
 			connMutex.Unlock()
 			conn.Close()
 			fmt.Printf("Client %s disconnected\n", clientId)
 
-			// Signal that the Goroutine has completed
-			wg.Done()
+			close(done)
 		}()
 
-		// Periodically check for messages for the connected client
 		ticker := time.NewTicker(2 * time.Second)
 		defer ticker.Stop()
 
@@ -103,7 +99,6 @@ func handleWebSocket(c *gin.Context) {
 				if found {
 					fmt.Printf("Sending message to client %s: %s\n", clientId, message)
 
-					// Send the message to the client
 					connMutex.Lock()
 					if err := connectionCache[clientId].WriteJSON(message); err != nil {
 						fmt.Println("Error sending message:", err)
@@ -114,12 +109,47 @@ func handleWebSocket(c *gin.Context) {
 					delete(messageCache, senderId)
 					cacheMutex.Unlock()
 				}
+
+			case message, ok := <-messageChan:
+				if !ok {
+					fmt.Println("Zatvorilo se")
+					return
+				}
+
+				fmt.Printf("Received message from client %s: %s\n", clientId, message)
+
+				connMutex.Lock()
+				if err := connectionCache[clientId].WriteMessage(websocket.TextMessage, message); err != nil {
+					fmt.Println("Error sending message:", err)
+				}
+				connMutex.Unlock()
 			}
 		}
 	}()
 
-	// Wait for the Goroutine to complete before returning from the function
-	wg.Wait()
+	go func() {
+		defer close(messageChan)
+
+		for {
+			_, message, err := conn.ReadMessage()
+			if err != nil {
+				// Handle the error (e.g., check for websocket.CloseMessage)
+				fmt.Printf("Error reading message: %v\n", err)
+				return
+			}
+
+			select {
+			case messageChan <- message:
+			case <-done:
+				return
+			}
+		}
+	}()
+
+	select {
+	case <-done:
+		return
+	}
 }
 
 func handleLongPoll(c *gin.Context) {
