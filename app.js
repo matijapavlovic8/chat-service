@@ -91,9 +91,9 @@ function sendMessage(message, clientId) {
 
 function pollForMessage(clientId) {
     const xhr = new XMLHttpRequest();
-    const url = 'http://localhost:5000/poll-message';
+    const url = 'http://localhost:5000/messages/poll';
 
-    xhr.open('GET', url, true);
+    xhr.open('POST', url, true);
     xhr.setRequestHeader('Client-Id', clientId);
 
     xhr.onload = function () {
@@ -119,10 +119,10 @@ function pollForMessage(clientId) {
 
 function longPollForMessage(clientId) {
     const xhr = new XMLHttpRequest();
-    const url = 'http://localhost:5000/long-poll-message';
+    const url = 'http://localhost:5000/messages/long-poll';
     longPollingActive[clientId] = true
 
-    xhr.open('GET', url, true);
+    xhr.open('POST', url, true);
     xhr.setRequestHeader('Client-Id', clientId);
 
     xhr.onload = function () {

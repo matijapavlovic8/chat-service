@@ -39,7 +39,7 @@ func main() {
 	router.POST("/message", handleMessage)
 	router.POST("/messages/poll", handlePoll)
 	router.POST("/messages/long-poll", handleLongPoll)
-	router.POST("/ws", handleWebSocket)
+	router.GET("/ws", handleWebSocket)
 	router.OPTIONS("/ws", func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
