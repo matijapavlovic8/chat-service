@@ -23,17 +23,21 @@ document.addEventListener('DOMContentLoaded', () => {
         const selectedMethod = methodPicker.value;
         if (selectedMethod === 'websocket') {
             stopPolling(clientId)
+            longPollingActive[clientId] = false
             connectWebSocket(clientId);
         } else if (selectedMethod === 'polling') {
             disconnectWebSocket(clientId)
+            longPollingActive[clientId] = false
             stopPolling(clientId)
             initPolling(clientId);
         } else if (selectedMethod === 'longpolling') {
             disconnectWebSocket(clientId)
             stopPolling(clientId)
+            longPollingActive[clientId] = true
             longPollForMessage(clientId);
         } else if (selectedMethod === 'disconnected') {
             disconnectWebSocket(clientId)
+            longPollingActive[clientId] = false
             stopPolling(clientId)
         }
     });
@@ -42,6 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 let pollingIntervals = {};
 let sockets = {}
+let longPollingActive = {}
 
 function initPolling(clientId) {
     if (!pollingIntervals[clientId]) {
@@ -84,9 +89,9 @@ function sendMessage(message, clientId) {
     xhr.send(body);
 }
 
-function pollForMessage(clientId, useLongPoll) {
+function pollForMessage(clientId) {
     const xhr = new XMLHttpRequest();
-    const url = 'http://localhost:5000/poll_message';
+    const url = 'http://localhost:5000/poll-message';
 
     xhr.open('GET', url, true);
     xhr.setRequestHeader('Client-Id', clientId);
@@ -114,13 +119,16 @@ function pollForMessage(clientId, useLongPoll) {
 
 function longPollForMessage(clientId) {
     const xhr = new XMLHttpRequest();
-    const url = 'http://localhost:5000/long_poll_message';
+    const url = 'http://localhost:5000/long-poll-message';
+    longPollingActive[clientId] = true
 
     xhr.open('GET', url, true);
     xhr.setRequestHeader('Client-Id', clientId);
 
     xhr.onload = function () {
-        if (xhr.status === 200) {
+        if (!longPollingActive[clientId]) {
+
+        } else if (xhr.status === 200) {
             const data = JSON.parse(xhr.responseText);
             if (data) {
                 displayMessage(data['message'], data['client_id']);
@@ -141,14 +149,6 @@ function longPollForMessage(clientId) {
     xhr.send();
 }
 
-
-// function disconnectWebSocket(clientId) {
-//     let socket = sockets[clientId]
-//     if (socket) {
-//         socket.close();
-//     }
-// }
-
 function disconnectWebSocket(clientId) {
     let socket = sockets[clientId];
     if (socket) {
@@ -161,6 +161,7 @@ function displayMessage(message, clientId) {
     const chatOutput = document.getElementById('chat-output');
     const messageElement = document.createElement('div');
     messageElement.textContent = `${clientId}: ${message}`;
+    chatOutput.innerHTML = ''
     chatOutput.appendChild(messageElement);
 }
 

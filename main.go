@@ -37,9 +37,9 @@ func main() {
 
 	// API endpoint for receiving messages
 	router.POST("/message", handleMessage)
-	router.GET("/poll_message", handlePoll)
-	router.GET("/long_poll_message", handleLongPoll)
-	router.GET("/ws", handleWebSocket)
+	router.POST("/messages/poll", handlePoll)
+	router.POST("/messages/long-poll", handleLongPoll)
+	router.POST("/ws", handleWebSocket)
 	router.OPTIONS("/ws", func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
@@ -71,7 +71,6 @@ func handleWebSocket(c *gin.Context) {
 
 	go func() {
 		defer func() {
-
 			connMutex.Lock()
 			delete(connectionCache, clientId)
 			connMutex.Unlock()
@@ -112,7 +111,6 @@ func handleWebSocket(c *gin.Context) {
 
 			case message, ok := <-messageChan:
 				if !ok {
-					fmt.Println("Zatvorilo se")
 					return
 				}
 
